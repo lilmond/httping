@@ -2,14 +2,33 @@ from urllib.parse import urlparse
 import argparse
 import logging
 import socket
+import socks
 import time
 import ssl
+import sys
+import os
+
+class Colors:
+    RED = "\u001b[31;1m"
+    GREEN = "\u001b[32;1m"
+    YELLOW = "\u001b[33;1m"
+    BLUE = "\u001b[34;1m"
+    RESET = "\u001b[0;0m"
+
+def clear_console():
+    if sys.platform == "win32":
+        os.system("cls")
+    elif sys.platform in ["linux", "linux2"]:
+        os.system("clear")
 
 def main():
     parser = argparse.ArgumentParser(description="A simple HTTP server pinger.")
     parser.add_argument("url", metavar="URL", type=str, help="Target's full URL.")
     parser.add_argument("-t", "--timeout", metavar="TIMEOUT", type=int, default=5, help="Socket connection timeout value.")
     parser.add_argument("-nv", "--no-verify", action="store_true", default=False, help="Whether to verify SSL if the connection is HTTPS.")
+    parser.add_argument("-p", "--proxy", type=str, help="Use proxy to ping? Type the address if so, example: socks5://127.0.0.1:9050")
+    parser.add_argument("-gr", "--get-response", action="store_true", default=False, help="Whether to receive response header and body from the server and print it in the terminal.")
+    parser.add_argument("--header", dest="headers", action="append", help="Add a custom header. Example: \"--header Authorization: token123\"")
     args = parser.parse_args()
 
     parsed_url = urlparse(args.url)
@@ -20,7 +39,7 @@ def main():
         else:
             port = 80
     else:
-        port = parsed_url.port
+        port = int(parsed_url.port)
 
     hostname = parsed_url.hostname
 
@@ -29,17 +48,35 @@ def main():
     logging.basicConfig(
         format="[%(asctime)s][%(levelname)s] %(message)s",
         datefmt="%H:%M:%S %m-%d-%Y",
-        level=logging.INFO
+        level=logging.INFO,
     )
 
-    logging.info(f"Initializing HTTP Pinger on {hostname}:{port}...")
+    clear_console()
+
+    logging.info(f"Initializing HTTP Pinger on {Colors.GREEN}{hostname}:{port}{Colors.RESET}...")
+
+    sequence = 1
 
     while True:
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            connect_time = time.time()
-            sock.connect((hostname, port))
-            connected_time = time.time()
+            if args.proxy:
+                proxy_url = urlparse(args.proxy)
+                proxy_type = getattr(socks, f"PROXY_TYPE_{proxy_url.scheme.upper()}")
+
+                sock = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.set_proxy(proxy_type=proxy_type, addr=proxy_url.hostname, port=proxy_url.port)
+            else:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            
+            try:
+                connect_time = time.time()
+                sock.connect((hostname, port))
+                connected_time = time.time()
+            except Exception:
+                time.sleep(1)
+                logging.info(f"{Colors.RED}Connection failed.{Colors.RESET}")
+                continue
+
             connection_timestamp_ms = f"{((connected_time - connect_time) * 1000):.2f}"
 
             if parsed_url.scheme == "https":
@@ -53,11 +90,11 @@ def main():
 
             http_headers = {
                 "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-                "accept-encoding": "gzip, deflate, br, zstd",
+                #"accept-encoding": "gzip, deflate, br, zstd",
                 "accept-language": "en-US,en;q=0.9",
                 "connection": "keep-alive",
                 "dnt": "1",
-                "host": f"{hostname}{':' + port if not port in [80, 443] else ''}",
+                "host": f"{hostname}" + (f":{port}" if not port in [80, 443] else ""),
                 "sec-ch-ua": "\"Microsoft Edge\";v=\"129\", \"Not=A?Brand\";v=\"8\", \"Chromium\";v=\"129\"",
                 "sec-ch-ua-mobile": "?0",
                 "sec-ch-ua-platform": "\"Windows\"",
@@ -68,6 +105,14 @@ def main():
                 "upgrade-insecure-requests": "1",
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0"
             }
+
+            if args.headers:
+                for header in args.headers:
+                    header_name, header_value = header.split(":", 1)
+                    header_name = header_name.strip().lower()
+                    header_value = header_value.strip()
+
+                    http_headers[header_name] = header_value
 
             http_header = f"GET {parsed_url.path} HTTP/1.1\r\n"
 
@@ -91,7 +136,68 @@ def main():
                 if first_line.endswith(b"\r\n"):
                     break
 
-            logging.info(f"Ping: {connection_timestamp_ms} ms | {first_line.decode().strip()}")
+            logging.info(f"{Colors.GREEN}({sequence}) Ping: {connection_timestamp_ms} ms | {first_line.decode().strip()}{Colors.RESET}")
+
+            if args.get_response:
+                # Get response headers
+                headers_data = b""
+
+                while True:
+                    chunk = sock.recv(1)
+                    
+                    if not chunk:
+                        raise Exception("Connection closed unexpectedly.")
+
+                    headers_data += chunk
+
+                    if headers_data.endswith(b"\r\n\r\n"):
+                        break
+                
+                # Response headers dictionary
+                headers_dict = {}
+
+                for line in headers_data.decode().strip().splitlines():
+                    header_name, header_value = line.split(":", 1)
+                    header_name = header_name.strip().lower()
+                    header_value = header_value.strip()
+
+                    headers_dict[header_name] = header_value
+                                
+                logging.info(f"{Colors.BLUE}({sequence}) Response Headers:{Colors.RESET}\n{headers_data.decode(errors='replace')}")
+
+                # Get response body
+                body_data = b""
+
+                while True:
+                    try:
+                        if headers_dict.get("content-length"):
+                            if int(headers_dict["content-length"]) <= 0:
+                                break
+
+                        chunk = sock.recv(1)
+                        
+                        if not chunk:
+                            raise Exception("Connection closed unexpectedly.")
+                        
+                        body_data += chunk
+
+                        if body_data.endswith(b"\r\n\r\n"):
+                            break
+
+                        if headers_dict.get("content-length"):
+                            if len(body_data) >= int(headers_dict["content-length"]):
+                                break
+
+                    except socket.timeout:
+                        print("Timed out while receiving body response...")
+                        break
+
+                if body_data:
+                    logging.info(f"{Colors.BLUE}({sequence}) Response Body:{Colors.RESET}\n{body_data.decode(errors='replace')}")
+                else:
+                    logging.info(f"{Colors.BLUE}({sequence}) No Response Body.{Colors.RESET}")
+
+            sequence += 1
 
             time.sleep(1)
         except Exception as e:
