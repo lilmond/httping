@@ -12,7 +12,7 @@ cd httping
 python httping.py --help
 ```
 ```
-usage: httping.py [-h] [-t TIMEOUT] [-nv] URL
+usage: httping.py [-h] [-t TIMEOUT] [-nv] [-p PROXY] [-gr] [--header HEADERS] URL
 
 A simple HTTP server pinger.
 
@@ -24,6 +24,10 @@ options:
   -t TIMEOUT, --timeout TIMEOUT
                         Socket connection timeout value.
   -nv, --no-verify      Whether to verify SSL if the connection is HTTPS.
+  -p PROXY, --proxy PROXY
+                        Use proxy to ping? Type the address if so, example: socks5://127.0.0.1:9050
+  -gr, --get-response   Whether to receive response header and body from the server and print it in the terminal.
+  --header HEADERS      Add a custom header. Example: "--header Authorization: token123"
 ```
 
 # Example
@@ -36,4 +40,17 @@ python httping.py https://www.roblox.com/login
 [13:28:49 10-02-2024][INFO] Ping: 36.73 ms | HTTP/1.1 200 OK
 [13:28:51 10-02-2024][INFO] Ping: 37.32 ms | HTTP/1.1 200 OK
 [13:28:52 10-02-2024][INFO] Ping: 38.32 ms | HTTP/1.1 200 OK
+```
+
+# Example with Tor proxies
+
+```
+python httping.py http://6nhmgdpnyoljh5uzr5kwlatx2u3diou4ldeommfxjz3wkhalzgjqxzqd.onion/ -p socks5://127.0.0.1:9050
+```
+```
+[15:45:03 10-02-2024][INFO] Initializing HTTP Pinger on 6nhmgdpnyoljh5uzr5kwlatx2u3diou4ldeommfxjz3wkhalzgjqxzqd.onion:80...
+[15:45:07 10-02-2024][INFO] (1) Ping: 3127.06 ms | HTTP/1.1 200 OK
+[15:45:09 10-02-2024][INFO] (2) Ping: 452.95 ms | HTTP/1.1 200 OK
+[15:45:11 10-02-2024][INFO] (3) Ping: 647.77 ms | HTTP/1.1 200 OK
+[15:45:13 10-02-2024][INFO] (4) Ping: 621.05 ms | HTTP/1.1 200 OK
 ```
