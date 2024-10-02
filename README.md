@@ -5,6 +5,7 @@ Linux
 ```
 git clone https://github.com/lilmond/httping/
 cd httping
+pip install -r requirements.txt
 ```
 
 # Usage
