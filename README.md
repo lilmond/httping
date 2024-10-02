@@ -36,11 +36,11 @@ options:
 python httping.py https://www.roblox.com/login
 ```
 ```
-[13:28:47 10-02-2024][INFO] Initializing HTTP Pinger on www.roblox.com:443...
-[13:28:48 10-02-2024][INFO] Ping: 84.33 ms | HTTP/1.1 200 OK
-[13:28:49 10-02-2024][INFO] Ping: 36.73 ms | HTTP/1.1 200 OK
-[13:28:51 10-02-2024][INFO] Ping: 37.32 ms | HTTP/1.1 200 OK
-[13:28:52 10-02-2024][INFO] Ping: 38.32 ms | HTTP/1.1 200 OK
+[15:50:18 10-02-2024][INFO] Initializing HTTP Pinger on www.roblox.com:443...
+[15:50:18 10-02-2024][INFO] (1) Ping: 49.66 ms | HTTP/1.1 200 OK
+[15:50:20 10-02-2024][INFO] (2) Ping: 37.05 ms | HTTP/1.1 200 OK
+[15:50:21 10-02-2024][INFO] (3) Ping: 36.09 ms | HTTP/1.1 200 OK
+[15:50:23 10-02-2024][INFO] (4) Ping: 45.58 ms | HTTP/1.1 200 OK
 ```
 
 # Example with Tor proxies
