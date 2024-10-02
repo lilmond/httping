@@ -114,7 +114,7 @@ def main():
 
                     http_headers[header_name] = header_value
 
-            http_header = f"GET {parsed_url.path} HTTP/1.1\r\n"
+            http_header = f"GET {parsed_url.path if parsed_url.path else '/'} HTTP/1.1\r\n"
 
             for header in http_headers:
                 http_header += f"{header}: {http_headers[header]}\r\n"
